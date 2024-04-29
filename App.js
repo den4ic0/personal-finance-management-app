@@ -1,28 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import styled from 'styled-components';
 
-const Container = styled.div`
-  padding: 20px;
-  margin: 0 auto;
-  max-width: 600px;
-`;
-
-const Header = styled.h2`
-  text-align: center;
-`;
-
-const Button = styled.button`
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px;
-  margin: 10px 0;
-  border: none;
-  cursor: pointer;
-  &:hover {
-    background-color: #45a049;
-  }
-`;
+const Container = styled.div`...`;
+const Header = styled.h2`...`;
+const Button = styled.button`...`;
 
 const initialState = {
   balance: 0,
@@ -51,6 +33,27 @@ const financeReducer = (state, action) => {
   }
 };
 
+const memoize = (fn) => {
+  let cache = {};
+  return (...args) => {
+    let n = args[0]; 
+    if (n in cache) {
+      console.log('Fetching from cache');
+      return cache[n];
+    }
+    else {
+      console.log('Calculating result');
+      let result = fn(n);
+      cache[n] = result;
+      return result;
+    }
+  }
+}
+
+const heavyComputation = memoize((transactions) => {
+  return transactions.reduce((acc, transaction) => acc + transaction.amount, 0);
+});
+
 const FinanceManagementApp = () => {
   const [state, dispatch] = useReducer(financeReducer, initialState);
 
@@ -66,6 +69,8 @@ const FinanceManagementApp = () => {
     dispatch({ type: actions.ADD_TRANSACTION, payload: transaction });
   };
 
+  const total = useMemo(() => heavyComputation(state.transactions), [state.transactions]);
+
   return (
     <FinanceContext.Provider value={{ state, addTransaction }}>
       <Container>
@@ -75,42 +80,6 @@ const FinanceManagementApp = () => {
         <AddTransactionForm addTransaction={addTransaction} />
       </Container>
     </FinanceContext.Provider>
-  );
-};
-
-const DisplayBalance = ({ balance }) => (
-  <div>Current Balance: ${balance}</div>
-);
-
-const TransactionList = ({ transactions }) => (
-  <div>
-    <Header>Recent Transactions</Header>
-    {transactions.map((transaction, index) => (
-      <div key={index}>
-        {transaction.type}: ${transaction.amount} - {transaction.date}
-      </div>
-    ))}
-  </div>
-);
-
-const AddTransactionForm = ({ addTransaction }) => {
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const { amount, type } = event.target.elements;
-    addTransaction({ type: type.value, amount: parseFloat(amount.value) });
-    event.target.reset();
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input type="number" name="amount" placeholder="Amount" required />
-      <select name="type" required>
-        <option value="">Select Type</option>
-        <option value="Income">Income</option>
-        <option value="Expense">Expense</option>
-      </select>
-      <Button type="submit">Add Transaction</Button>
-    </form>
   );
 };
 
