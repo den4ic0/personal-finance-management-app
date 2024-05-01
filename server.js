@@ -4,8 +4,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const User = require('./models/User'); 
-const Transaction = require('./models/Transaction'); 
+const User = require('./models/User');
+const Transaction = require('./models/Transaction');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,13 +23,13 @@ const verifyToken = (req, res, next) => {
     req.token = bearerToken;
     next();
   } else {
-    res.sendStatus(403); 
+    res.sendStatus(403);
   }
 };
 
 app.post('/register', async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const hashedPassword = await bcrypt.hash(req.body.password, 8);
     const user = new User({
       username: req.body.username,
       password: hashedPassword,
