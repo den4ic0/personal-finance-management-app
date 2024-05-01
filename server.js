@@ -11,93 +11,93 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log(err));
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => console.log('MongoDB connection failed:', err));
 
 app.use(bodyParser.json());
 
-const verifyToken = (req, res, next) => {
-  const bearerHeader = req.headers['authorization'];
-  if (typeof bearerHeader !== 'undefined') {
-    const bearerToken = bearerHeader.split(' ')[1];
-    req.token = bearerToken;
+const authenticateRequest = (req, res, next) => {
+  const authorizationHeader = req.headers['authorization'];
+  if (typeof authorizationHeader !== 'undefined') {
+    const token = authorizationHeader.split(' ')[1];
+    req.token = token;
     next();
   } else {
-    res.sendStatus(403);
+    res.sendStatus(403); // Forbidden
   }
 };
 
 app.post('/register', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 8);
-    const user = new User({
+    const newUser = new User({
       username: req.body.username,
       password: hashedPassword,
     });
-    await user.save();
-    res.status(201).send('User created');
+    await newUser.save();
+    res.status(201).send('User registered successfully');
   } catch (error) {
-    res.status(500).send('Error registering new user');
+    res.status(500).send('User registration failed');
   }
 });
 
 app.post('/login', async (req, res) => {
-  const user = await User.findOne({ username: req.body.username });
-  if (!user) {
+  const loginUser = await User.findOne({ username: req.body.username });
+  if (!loginUser) {
     return res.status(400).send('User not found');
   }
-  const isValid = await bcrypt.compare(req.body.password, user.password);
-  if (isValid) {
-    jwt.sign({ user }, process.env.JWT_SECRET, { expiresIn: '2h' }, (err, token) => {
+  const passwordIsValid = await bcrypt.compare(req.body.password, loginUser.password);
+  if (passwordIsValid) {
+    jwt.sign({ user: loginUser }, process.env.JWT_SECRET, { expiresIn: '2h' }, (err, token) => {
       if (err) {
-        return res.sendStatus(500);
+        return res.sendStatus(500); // Internal server error
       }
-      res.json({ token });
+      res.json({ token: token });
     });
   } else {
-    res.status(401).send('Not authorized');
+    res.status(401).send('Login not authorized');
   }
 });
 
-app.post('/transaction', verifyToken, async (req, res) => {
-  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authData) => {
+app.post('/transaction', authenticateRequest, async (req, res) => {
+  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
     if (err) {
       res.sendStatus(403);
     } else {
-      const transaction = new Transaction({
-        userId: authData.user._id,
+      const newTransaction = new Transaction({
+        userId: authorizedData.user._id,
         ...req.body,
       });
       try {
-        await transaction.save();
-        res.json({ message: 'Transaction added', transaction });
+        await newTransaction.save();
+        res.json({ message: 'Transaction created successfully', transaction: newTransaction });
       } catch (error) {
-        res.status(500).send('Error saving transaction');
+        res.status(500).send('Failed to save transaction');
       }
     }
   });
 });
 
-app.get('/transactions', verifyToken, async (req, res) => {
-  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authData) => {
+app.get('/transactions', authenticateRequest, async (req, res) => {
+  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
     if (err) {
       res.sendStatus(403);
     } else {
       try {
-        const transactions = await Transaction.find({ userId: authData.user._id });
-        res.json(transactions);
+        const userTransactions = await Transaction.find({ userId: authorizedData.user._id });
+        res.json(userTransactions);
       } catch (error) {
-        res.status(500).send('Error retrieving transactions');
+        res.status(500).send('Failed to retrieve transactions');
       }
     }
   });
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
+  console.error('Unhandled error:', err.stack);
+  res.status(500).send('Unexpected server error');
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is up and running on port ${PORT}`);
 });
