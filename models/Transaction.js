@@ -16,7 +16,8 @@ const TransactionSchema = new mongoose.Schema({
   },
   date: {
     type: Date,
-    required: [true, 'Date is required'],
+    default: Date.now,
+    required: [true, 'Transaction date is required'],
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -24,33 +25,33 @@ const TransactionSchema = new mongoose.Schema({
   }
 });
 
-TransactionSchema.statics.addTransaction = async function(transactionData) {
+TransactionSchema.statics.createTransaction = async function(transactionDetails) {
   try {
-    const transaction = await this.create(transactionData);
-    return transaction;
+    const newTransaction = await this.create(transactionDetails);
+    return newTransaction;
   } catch(error) {
     throw error;
   }
 };
 
-TransactionSchema.statics.deleteTransaction = async function(transactionId) {
+TransactionSchema.statics.removeTransactionById = async function(transactionId) {
   try {
-    const result = await this.deleteOne({ _id: transactionId });
-    return result;
+    const deletionResult = await this.deleteOne({ _id: transactionId });
+    return deletionResult;
   } catch(error) {
     throw error;
   }
 };
 
-TransactionSchema.statics.updateTransaction = async function(transactionId, updateData) {
+TransactionSchema.statics.modifyTransaction = async function(transactionId, updatedDetails) {
   try {
-    const result = await this.findByIdAndUpdate(transactionId, updateData, { new: true });
-    return result;
+    const updatedTransaction = await this.findByIdAndUpdate(transactionId, updatedDetails, { new: true });
+    return updatedTransaction;
   } catch(error) {
     throw error;
   }
 };
 
-const Transaction = mongoose.model('Transaction', TransactionSchema);
+const TransactionModel = mongoose.model('Transaction', TransactionSchema);
 
-module.exports = Transaction;
+module.exports = TransactionModel;
