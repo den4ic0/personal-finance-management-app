@@ -3,63 +3,63 @@ import { Formik } from 'formik';
 import axios from 'axios';
 import * as Yup from 'yup';
 
-const AuthenticationContext = createContext();
+const AuthContext = createContext();
 
-export const useAuthentication = () => useContext(AuthenticationContext);
+export const useAuth = () => useContext(AuthContext);
 
-export const AuthenticationProvider = ({ children }) => {
-  const [authenticatedUser, setAuthenticatedUser] = useState(null);
+export const AuthProvider = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState(null);
 
-  const authenticateUser = async (email, password) => {
+  const logIn = async (email, password) => {
     try {
       const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/login`, { email, password });
-      setAuthenticatedUser(response.data.user);
+      setCurrentUser(response.data.user);
     } catch (error) {
-      console.error("User login failed:", error);
+      console.error("Login attempt failed:", error);
     }
   };
 
-  const createUserAccount = async (email, password) => {
+  const signUp = async (email, password) => {
     try {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}/register`, { email, password });
-      authenticateUser(email, password); // Reuse authenticateUser function for logging in after registration.
+      logIn(email, password); // Reuse logIn function for authentication after signup.
     } catch (error) {
-      console.error("User registration failed:", error);
+      console.error("Signup attempt failed:", error);
     }
   };
 
-  const signOutUser = () => {
-    setAuthenticatedUser(null);
+  const logOut = () => {
+    setCurrentUser(null);
   };
 
   return (
-    <AuthenticationContext.Provider value={{ user: authenticatedUser, login: authenticateUser, register: createUserAccount, logout: signOutUser }}>
+    <AuthContext.Provider value={{ user: currentUser, login: logIn, register: signUp, logout: logOut }}>
       {children}
-    </AuthenticationContext.Provider>
+    </AuthContext.Provider>
   );
 };
 
-const AuthenticationSchema = Yup.object().shape({
+const AuthSchema = Yup.object().shape({
   email: Yup.string().email('Invalid email').required('Email is required'),
   password: Yup.string().required('Password is required'),
 });
 
-const AuthenticationForm = ({ isLogin }) => {
-  const { login: authenticateUser, register: createUserAccount } = useAuthentication();
+const AuthForm = ({ isLogin }) => {
+  const { login, register } = useAuth();
 
-  const handleFormSubmission = (values) => {
+  const onSubmit = (values) => {
     if (isLogin) {
-      authenticateUser(values.email, values.password);
+      login(values.email, values.password);
     } else {
-      createUserAccount(values.email, values.password);
+      register(values.email, values.password);
     }
   };
 
   return (
     <Formik
       initialValues={{ email: '', password: '' }}
-      validationSchema={AuthenticationSchema}
-      onSubmit={handleFormSubmission}
+      validationSchema={AuthSchema}
+      onSubmit={onSubmit}
     >
       {({
         values,
@@ -89,7 +89,7 @@ const AuthenticationForm = ({ isLogin }) => {
             />
             {touched.password && errors.password && <div>{errors.password}</div>}
           </div>
-          <button type="submit">{isLogin ? 'Login' : 'Register'}</button>
+          <button type="submit">{isLogin ? 'Log In' : 'Sign Up'}</button>
         </form>
       )}
     </Formik>
