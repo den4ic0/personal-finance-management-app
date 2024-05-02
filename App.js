@@ -47,37 +47,62 @@ const memoize = (fn) => {
       return cache[n];
     } else {
       console.log('Calculating result');
-      let result = fn(n);
-      cache[n] = result;
+      let result;
+      try {
+        result = fn(n);
+        cache[n] = result;
+      } catch (error) {
+        console.error('Failed to compute:', error);
+        result = 0; // Default to 0 or handle as needed
+      }
       return result;
     }
   }
 }
 
 const heavyComputation = memoize((transactions) => {
-  return transactions.reduce((acc, transaction) => acc + transaction.amount, 0);
+  if (!Array.isArray(transactions)) throw new Error("Invalid transactions array");
+  return transactions.reduce((acc, transaction) => {
+    if (typeof transaction.amount !== 'number') throw new Error("Invalid transaction amount");
+    return acc + transaction.amount;
+  }, 0);
 });
 
 const FinanceManagementApp = () => {
   const [state, dispatch] = useReducer(financeReducer, initialState);
 
   useEffect(() => {
+    let isMounted = true; // to control the state update on unmounted component
     async function fetchFinances() {
       try {
         const response = await axios.get('/api/finances');
-        dispatch({ type: actions.SET_FINANCES, payload: response.data });
+        if (isMounted) {
+          dispatch({ type: actions.SET_FINANCES, payload: response.data });
+        }
       } catch (error) {
-        dispatch({ type: actions.SET_ERROR, payload: "Failed to fetch finances. Please try again." });
+        if (isMounted) {
+          dispatch({ type: actions.SET_ERROR, payload: "Failed to fetch finances. Please try again." });
+        }
       }
     }
     fetchFinances();
+    return () => {
+      isMounted = false; // Cleanup function to avoid setting state after unmount
+    };
   }, []);
 
   const addTransaction = (transaction) => {
     dispatch({ type: actions.ADD_TRANSACTION, payload: transaction });
   };
 
-  const total = useMemo(() => heavyComputation(state.transactions), [state.transactions]);
+  const total = useMemo(() => {
+    try {
+      return heavyComputation(state.transactions);
+    } catch (error) {
+      console.error('Failed to compute total: ', error);
+      return 0; // Default or fallback value in case of an error
+    }
+  }, [state.transactions]);
 
   return (
     <FinanceContext.Provider value={{ state, addTransaction }}>
