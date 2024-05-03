@@ -26,19 +26,34 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.methods.setPassword = async function(password) {
-  const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
-  this.passwordHash = await bcrypt.hash(password, saltRounds);
-  this.logActivity('Set password');
+  try {
+    const saltRounds = parseInt(process.env.SALT_ROUNDS, 10) || 10;
+    this.passwordHash = await bcrypt.hash(password, saltRounds);
+    this.logActivity('Set password');
+  } catch (error) {
+    this.logActivity('Failed to set password');
+    console.error(`Error in setPassword: ${error}`);
+  }
 }
 
 userSchema.methods.validatePassword = async function(password) {
-  const isValid = await bcrypt.compare(password, this.passwordHash);
-  this.logActivity(isValid ? 'Validated password successfully' : 'Failed password validation');
-  return isValid;
+  try {
+    const isValid = await bcrypt.compare(password, this.passwordHash);
+    this.logActivity(isValid ? 'Validated password successfully' : 'Failed password validation');
+    return isValid;
+  } catch (error) {
+    this.logActivity('Error validating password');
+    console.error(`Error in validatePassword: ${error}`);
+    return false;
+  }
 }
 
 userSchema.methods.logActivity = function(message) {
-  console.log(`[User Activity]: ${message} for user ${this.username} at ${(new Date()).toISOString()}`);
+  try {
+    console.log(`[User Activity]: ${message} for user ${this.username} at ${(new Date()).toISOString()}`);
+  } catch (error) {
+    console.error(`Error in logActivity: ${error}`);
+  }
 }
 
 const User = mongoose.model('User', userSchema);
