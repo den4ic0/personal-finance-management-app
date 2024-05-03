@@ -10,7 +10,7 @@ const initialState = {
   totalBudget: 0,
 };
 
-const reducer = (state = initialState, action) => {
+const budgetReducer = (state = initialState, action) => {
   switch (action.type) {
     case 'ADD_TRANSACTION':
       return {
@@ -23,80 +23,80 @@ const reducer = (state = initialState, action) => {
   }
 };
 
-const store = createStore(reducer);
+const budgetStore = createStore(budgetReducer);
 
-const Stack = createStackNavigator();
+const StackNavigator = createStackNavigator();
 
-const TransactionList = ({ navigation }) => {
+const TransactionListScreen = ({ navigation }) => {
   const { transactions, totalBudget } = useSelector(state => state);
 
-  const renderItem = ({ item }) => (
-    <View style={styles.listItem}>
+  const renderTransactionItem = ({ item }) => (
+    <View style={styles.transactionItem}>
       <Text>{item.description} - ${item.amount}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.screenContainer}>
       <Text>Transaction List (Total Budget: ${totalBudget})</Text>
       <FlatList
         data={transactions}
-        renderItem={renderItem}
+        renderItem={renderTransactionItem}
         keyExtractor={item => item.id.toString()}
       />
-      <Button title="Add Transaction" onPress={() => navigation.navigate('AddTransaction')} />
+      <Button title="Add Transaction" onPress={() => navigation.navigate('AddTransactionScreen')} />
     </SafeAreaView>
   );
 };
 
-const AddTransaction = ({ navigation }) => {
+const AddTransactionScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [transactionDescription, setTransactionDescription] = useState('');
+  const [transactionAmount, setTransactionAmount] = useState('');
 
-  const addTransaction = () => {
+  const handleAddTransaction = () => {
     dispatch({
       type: 'ADD_TRANSACTION',
-      payload: { id: Math.random(), description, amount: parseFloat(amount) },
+      payload: { id: Math.random(), description: transactionDescription, amount: parseFloat(transactionAmount) },
     });
     navigation.goBack();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.screenContainer}>
       <TextInput
         style={styles.input}
         placeholder="Description"
-        value={description}
-        onChangeText={setDescription}
+        value={transactionDescription}
+        onChangeText={setTransactionDescription}
       />
       <TextInput
         style={styles.input}
         placeholder="Amount"
-        value={amount}
-        onChangeText={setAmount}
+        value={transactionAmount}
+        onChangeText={setTransactionAmount}
         keyboardType="numeric"
       />
-      <Button title="Submit" onPress={addTransaction} />
+      <Button title="Submit" onPress={handleAddTransaction} />
     </SafeAreaView>
   );
 };
 
-const MainComponent = () => {
+const BudgetApp = () => {
   return (
-    <Provider store={store}>
+    <Provider store={budgetStore}>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="TransactionList">
-          <Stack.Screen name="TransactionList" component={TransactionList} options={{ title: 'Transactions' }} />
-          <Stack.Screen name="AddTransaction" component={AddTransaction} options={{ title: 'Add Transaction' }} />
-        </Stack.Navigator>
+        <StackNavigator.Navigator initialRouteName="TransactionListScreen">
+          <StackNavigator.Screen name="TransactionListScreen" component={TransactionListScreen} options={{ title: 'Transactions' }} />
+          <StackNavigator.Screen name="AddTransactionScreen" component={AddTransactionScreen} options={{ title: 'Add Transaction' }} />
+        </StackNavigator.Navigator>
       </NavigationContainer>
     </Provider>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 20,
   },
-  listItem: {
+  transactionItem: {
     padding: 10,
     marginVertical: 5,
     backgroundColor: '#f9f9f9',
@@ -118,4 +118,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MainComponent;
+export default BudgetApp;
