@@ -27,9 +27,14 @@ const financeReducer = (state, action) => {
     case actions.SET_FINANCES:
       return { ...state, ...action.payload, error: null };
     case actions.ADD_TRANSACTION:
+      if (!action.payload || typeof action.payload.amount !== 'number') {
+        console.error('Invalid transaction payload:', action.payload);
+        return { ...state, error: 'Invalid transaction data.' };
+      }
       return {
         ...state,
         transactions: [action.payload, ...state.transactions],
+        error: null
       };
     case actions.SET_ERROR:
       return { ...state, error: action.payload };
@@ -53,7 +58,7 @@ const memoize = (fn) => {
         cache[n] = result;
       } catch (error) {
         console.error('Failed to compute:', error);
-        result = 0; // Default to 0 or handle as needed
+        result = 0; 
       }
       return result;
     }
@@ -72,7 +77,7 @@ const FinanceManagementApp = () => {
   const [state, dispatch] = useReducer(financeReducer, initialState);
 
   useEffect(() => {
-    let isMounted = true; // to control the state update on unmounted component
+    let isMounted = true;
     async function fetchFinances() {
       try {
         const response = await axios.get('/api/finances');
@@ -81,18 +86,26 @@ const FinanceManagementApp = () => {
         }
       } catch (error) {
         if (isMounted) {
-          dispatch({ type: actions.SET_ERROR, payload: "Failed to fetch finances. Please try again." });
+          const errorMessage = error.response && error.response.data.message ? error.response.data.message : "Failed to fetch finances. Please try again.";
+          dispatch({ type: actions.SET_ERROR, payload: errorMessage });
+          console.error('Fetch error:', error);
         }
       }
     }
     fetchFinances();
-    return () => {
-      isMounted = false; // Cleanup function to avoid setting state after unmount
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const addTransaction = (transaction) => {
-    dispatch({ type: actions.ADD_TRANSACTION, payload: transaction });
+    try {
+      if (!transaction || typeof transaction.amount !== 'number') {
+        throw new Error("Invalid transaction data");
+      }
+      dispatch({ type: actions.ADD_TRANSACTION, payload: transaction });
+    } catch (error) {
+      console.error('Add transaction error:', error);
+      dispatch({ type: actions.SET_ERROR, payload: 'Failed to add transaction.' });
+    }
   };
 
   const total = useMemo(() => {
@@ -100,7 +113,7 @@ const FinanceManagementApp = () => {
       return heavyComputation(state.transactions);
     } catch (error) {
       console.error('Failed to compute total: ', error);
-      return 0; // Default or fallback value in case of an error
+      return 0;
     }
   }, [state.transactions]);
 
