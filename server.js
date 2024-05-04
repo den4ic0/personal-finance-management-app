@@ -10,29 +10,27 @@ const Transaction = require('./models/Transaction');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch(err => console.log('MongoDB connection failed:', err));
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
 app.use(bodyParser.json());
 
-const authenticateRequest = (req, res, next) => {
+const verifyTokenMiddleware = (req, res, next) => {
   const authorizationHeader = req.headers['authorization'];
   if (typeof authorizationHeader !== 'undefined') {
     const token = authorizationHeader.split(' ')[1];
     req.token = token;
     next();
   } else {
-    res.sendStatus(403); // Forbidden
+    res.sendStatus(403);
   }
 };
 
 app.post('/register', async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash(req.body.password, 8);
+    const encryptedPassword = await bcrypt.hash(req.body.password, 8);
     const newUser = new User({
       username: req.body.username,
-      password: hashedPassword,
+      password: encryptedPassword,
     });
     await newUser.save();
     res.status(201).send('User registered successfully');
@@ -42,15 +40,15 @@ app.post('/register', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  const loginUser = await User.findOne({ username: req.body.username });
-  if (!loginUser) {
+  const userAttemptingLogin = await User.findOne({ username: req.body.username });
+  if (!userAttemptingLogin) {
     return res.status(400).send('User not found');
   }
-  const passwordIsValid = await bcrypt.compare(req.body.password, loginUser.password);
-  if (passwordIsValid) {
-    jwt.sign({ user: loginUser }, process.env.JWT_SECRET, { expiresIn: '2h' }, (err, token) => {
+  const isPasswordCorrect = await bcrypt.compare(req.body.password, userAttemptingLogin.password);
+  if (isPasswordCorrect) {
+    jwt.sign({ user: userAttemptingLogin }, process.env.JWT_SECRET, { expiresIn: '2h' }, (err, token) => {
       if (err) {
-        return res.sendStatus(500); // Internal server error
+        return res.sendStatus(500);
       }
       res.json({ token: token });
     });
@@ -59,7 +57,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.post('/transaction', authenticateRequest, async (req, res) => {
+app.post('/transaction', verifyTokenMiddleware, async (req, res) => {
   jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
     if (err) {
       res.sendStatus(403);
@@ -78,7 +76,7 @@ app.post('/transaction', authenticateRequest, async (req, res) => {
   });
 });
 
-app.get('/transactions', authenticateRequest, async (req, res) => {
+app.get('/transactions', verifyTokenMiddleware, async (req, res) => {
   jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
     if (err) {
       res.sendStatus(403);
