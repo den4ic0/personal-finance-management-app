@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (email, password) => {
     try {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}/register`, { email, password });
-      logIn(email, password); // Reuse logIn function for authentication after signup.
+      logIn(email, password);
     } catch (error) {
       console.error("Signup attempt failed:", error);
     }
@@ -48,10 +48,11 @@ const AuthForm = ({ isLogin }) => {
   const { login, register } = useAuth();
 
   const onSubmit = (values) => {
+    const { email, password } = values;
     if (isLogin) {
-      login(values.email, values.password);
+      login(email, password);
     } else {
-      register(values.email, values.password);
+      register(email, password);
     }
   };
 
@@ -95,3 +96,5 @@ const AuthForm = ({ isLogin }) => {
     </Formik>
   );
 };
+
+export default AuthForm;
