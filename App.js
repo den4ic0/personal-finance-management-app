@@ -27,15 +27,19 @@ const financeReducer = (state, action) => {
     case actions.SET_FINANCES:
       return { ...state, ...action.payload, error: null };
     case actions.ADD_TRANSACTION:
-      if (!action.payload || typeof action.payload.amount !== 'number') {
-        console.error('Invalid transaction payload:', action.payload);
-        return { ...state, error: 'Invalid transaction data.' };
+      try {
+        if (!action.payload || typeof action.payload.amount !== 'number') {
+          console.error('Invalid transaction payload:', action.payload);
+          throw new Error('Invalid transaction data');
+        }
+        return {
+          ...state,
+          transactions: [action.payload, ...state.transactions],
+          error: null
+        };
+      } catch (error) {
+        return { ...state, error: error.message };
       }
-      return {
-        ...state,
-        transactions: [action.payload, ...state.transactions],
-        error: null
-      };
     case actions.SET_ERROR:
       return { ...state, error: action.payload };
     default:
@@ -104,7 +108,7 @@ const FinanceManagementApp = () => {
       dispatch({ type: actions.ADD_TRANSACTION, payload: transaction });
     } catch (error) {
       console.error('Add transaction error:', error);
-      dispatch({ type: actions.SET_ERROR, payload: 'Failed to add transaction.' });
+      dispatch({ type: actions.SET_ERROR, payload: error.message });
     }
   };
 
@@ -113,6 +117,7 @@ const FinanceManagementApp = () => {
       return heavyComputation(state.transactions);
     } catch (error) {
       console.error('Failed to compute total: ', error);
+      dispatch({ type: actions.SET_ERROR, payload: 'Failed to compute total. Please check transaction data.' });
       return 0;
     }
   }, [state.transactions]);
@@ -125,6 +130,7 @@ const FinanceManagementApp = () => {
         <DisplayBalance balance={state.balance} />
         <TransactionList transactions={state.transactions} />
         <AddTransactionForm addTransaction={addTransaction} />
+        {/* Assuming DisplayBalance, TransactionList, AddTransactionForm are implemented elsewhere */}
       </Container>
     </FinanceContext.Provider>
   );
