@@ -14,81 +14,74 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTop
 
 app.use(bodyParser.json());
 
-const verifyTokenMiddleware = (req, res, next) => {
+function splitAuthorizationHeader(header) {
+  return header.split(' ')[1];
+}
+
+function authenticateToken(req, res, next) {
   const authorizationHeader = req.headers['authorization'];
-  if (typeof authorizationHeader !== 'undefined') {
-    const token = authorizationHeader.split(' ')[1];
-    req.token = token;
-    next();
+  if (authorizationHeader) {
+    const token = splitAuthorizationHeader(authorizationHeader);
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) return res.sendStatus(403);
+      req.user = user;
+      next();
+    });
   } else {
-    res.sendStatus(403);
+    res.sendStatus(401);
   }
-};
+}
 
 app.post('/register', async (req, res) => {
   try {
     const encryptedPassword = await bcrypt.hash(req.body.password, 8);
-    const newUser = new User({
-      username: req.body.username,
-      password: encryptedPassword,
-    });
-    await newUser.save();
+    await registerUser(req.body.username, encryptedPassword);
     res.status(201).send('User registered successfully');
   } catch (error) {
     res.status(500).send('User registration failed');
   }
 });
 
+async function registerUser(username, encryptedPassword){
+    const newUser = new User({ username, password: encryptedPassword });
+    await newUser.save();
+}
+
 app.post('/login', async (req, res) => {
-  const userAttemptingLogin = await User.findOne({ username: req.body.username });
-  if (!userAttemptingLogin) {
-    return res.status(400).send('User not found');
-  }
-  const isPasswordCorrect = await bcrypt.compare(req.body.password, userAttemptingLogin.password);
-  if (isPasswordCorrect) {
-    jwt.sign({ user: userAttemptingLogin }, process.env.JWT_SECRET, { expiresIn: '2h' }, (err, token) => {
-      if (err) {
-        return res.sendStatus(500);
-      }
-      res.json({ token: token });
-    });
-  } else {
-    res.status(401).send('Login not authorized');
+  try {
+    const user = await User.findOne({ username: req.body.username });
+    if (!user) return res.status(400).send('User not found');
+    const isPasswordCorrect = await bcrypt.compare(req.body.password, user.password);
+    if (!isPasswordCorrect) return res.status(401).send('Login not authorized');
+    const token = jwt.sign({ user: { _id: user._id } }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token });
+  } catch(error) {
+    res.sendStatus(500);
   }
 });
 
-app.post('/transaction', verifyTokenMiddleware, async (req, res) => {
-  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
-    if (err) {
-      res.sendStatus(403);
-    } else {
-      const newTransaction = new Transaction({
-        userId: authorizedData.user._id,
-        ...req.body,
-      });
-      try {
-        await newTransaction.save();
-        res.json({ message: 'Transaction created successfully', transaction: newTransaction });
-      } catch (error) {
-        res.status(500).send('Failed to save transaction');
-      }
-    }
-  });
+app.post('/transaction', authenticateToken, async (req, res) => {
+  try {
+    const newTransaction = await createTransaction(req.user._id, req.body);
+    res.json({ message: 'Transaction created successfully', transaction: newTransaction });
+  } catch (error) {
+    res.status(500).send('Failed to save transaction');
+  }
 });
 
-app.get('/transactions', verifyTokenMiddleware, async (req, res) => {
-  jwt.verify(req.token, process.env.JWT_SECRET, async (err, authorizedData) => {
-    if (err) {
-      res.sendStatus(403);
-    } else {
-      try {
-        const userTransactions = await Transaction.find({ userId: authorizedData.user._id });
-        res.json(userTransactions);
-      } catch (error) {
-        res.status(500).send('Failed to retrieve transactions');
-      }
-    }
-  });
+async function createTransaction(userId, transactionData) {
+  const newTransaction = new Transaction({ userId, ...transactionData });
+  await newTransaction.save();
+  return newTransaction;
+}
+
+app.get('/transactions', authenticateToken, async (req, res) => {
+  try {
+    const userTransactions = await Transaction.find({ userId: req.user._id });
+    res.json(userTransactions);
+  } catch (error) {
+    res.status(500).send('Failed to retrieve transactions');
+  }
 });
 
 app.use((err, req, res, next) => {
