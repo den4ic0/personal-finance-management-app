@@ -58,6 +58,19 @@ TransactionSchema.statics.modifyTransaction = async function (transactionId, upd
   }
 };
 
+TransactionSchema.statics.getSpendingByCategory = async function (userId, startDate, endDate) {
+  try {
+    const aggregationResults = await this.aggregate([
+      { $match: { userId: mongoose.Types.ObjectId(userId), date: { $gte: new Date(startDate), $lte: new Date(endDate) } } },
+      { $group: { _id: "$category", totalAmount: { $sum: "$amount" } } },
+      { $sort: { totalAmount: -1 } }
+    ]);
+    return aggregationResults;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
 function handleError(error) {
   if (error.name === 'ValidationError') {
     const messages = Object.values(error.errors).map(val => val.message);
