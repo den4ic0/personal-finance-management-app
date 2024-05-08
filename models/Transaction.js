@@ -14,6 +14,11 @@ const TransactionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
   },
+  type: {
+    type: String,
+    required: [true, 'Transaction type is required'], // income or expense
+    enum: ['income', 'expense']
+  },
   date: {
     type: Date,
     default: Date.now,
@@ -62,7 +67,7 @@ TransactionSchema.statics.getSpendingByCategory = async function (userId, startD
   try {
     const aggregationResults = await this.aggregate([
       { $match: { userId: mongoose.Types.ObjectId(userId), date: { $gte: new Date(startDate), $lte: new Date(endDate) } } },
-      { $group: { _id: "$category", totalAmount: { $sum: "$amount" } } },
+      { $group: { _id: { type: "$type", category: "$category" }, totalAmount: { $sum: "$amount" } } },
       { $sort: { totalAmount: -1 } }
     ]);
     return aggregationResults;
@@ -72,6 +77,7 @@ TransactionSchema.statics.getSpendingByCategory = async function (userId, startD
 };
 
 function handleError(error) {
+  console.error('Error occurred:', error);
   if (error.name === 'ValidationError') {
     const messages = Object.values(error.errors).map(val => val.message);
     throw new Error(`Validation Error: ${messages.join('. ')}`);
