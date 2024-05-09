@@ -14,73 +14,73 @@ const TransactionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
   },
-  type: {
+  transactionType: {
     type: String,
-    required: [true, 'Transaction type is required'], // income or expense
+    required: [true, 'Transaction type is required'], 
     enum: ['income', 'expense']
   },
-  date: {
+  transactionDate: {
     type: Date,
     default: Date.now,
     required: [true, 'Transaction date is required'],
   },
-  userId: {
+  ownerUserId: {
     type: mongoose.Schema.Types.ObjectId,
     required: [true, 'User ID is required'],
   }
 });
 
-TransactionSchema.statics.createTransaction = async function (transactionDetails) {
+TransactionSchema.statics.addNewTransaction = async function (transactionData) {
   try {
-    const newTransaction = await this.create(transactionDetails);
-    return newTransaction;
+    const transaction = await this.create(transactionData);
+    return transaction;
   } catch (error) {
-    handleError(error);
+    manageError(error);
   }
 };
 
-TransactionSchema.statics.removeTransactionById = async function (transactionId) {
+TransactionSchema.statics.deleteTransactionById = async function (transactionId) {
   try {
-    const deletionResult = await this.deleteOne({ _id: transactionId });
-    if (deletionResult.deletedCount === 0) {
+    const deleteOutcome = await this.deleteOne({ _id: transactionId });
+    if (deleteOutcome.deletedCount === 0) {
       throw new Error(`Transaction with ID ${transactionId} not found.`);
     }
-    return deletionResult;
+    return deleteOutcome;
   } catch (error) {
-    handleError(error);
+    manageError(error);
   }
 };
 
-TransactionSchema.statics.modifyTransaction = async function (transactionId, updatedDetails) {
+TransactionSchema.statics.updateTransactionById = async function (transactionId, transactionUpdates) {
   try {
-    const updatedTransaction = await this.findByIdAndUpdate(transactionId, updatedDetails, { new: true });
-    if (!updatedTransaction) {
+    const updatedTransactionRecord = await this.findByIdAndUpdate(transactionId, transactionUpdates, { new: true });
+    if (!updatedTransactionRecord) {
       throw new Error(`Transaction with ID ${transactionId} not found or could not be updated.`);
     }
-    return updatedTransaction;
+    return updatedTransactionRecord;
   } catch (error) {
-    handleError(error);
+    manageError(error);
   }
 };
 
-TransactionSchema.statics.getSpendingByCategory = async function (userId, startDate, endDate) {
+TransactionSchema.statics.calculateSpendingPerCategory = async function (userId, startPeriodDate, endPeriodDate) {
   try {
-    const aggregationResults = await this.aggregate([
-      { $match: { userId: mongoose.Types.ObjectId(userId), date: { $gte: new Date(startDate), $lte: new Date(endDate) } } },
-      { $group: { _id: { type: "$type", category: "$category" }, totalAmount: { $sum: "$amount" } } },
-      { $sort: { totalAmount: -1 } }
+    const spendingBreakdown = await this.aggregate([
+      { $match: { ownerUserId: mongoose.Types.ObjectId(userId), transactionDate: { $gte: new Date(startPeriodDate), $lte: new Date(endPeriodDate) } } },
+      { $group: { _id: { transactionType: "$transactionType", category: "$category" }, totalSpent: { $sum: "$amount" } } },
+      { $sort: { totalSpent: -1 } }
     ]);
-    return aggregationResults;
+    return spendingBreakdown;
   } catch (error) {
-    handleError(error);
+    manageError(error);
   }
 };
 
-function handleError(error) {
+function manageError(error) {
   console.error('Error occurred:', error);
   if (error.name === 'ValidationError') {
-    const messages = Object.values(error.errors).map(val => val.message);
-    throw new Error(`Validation Error: ${messages.join('. ')}`);
+    const errorMessages = Object.values(error.errors).map(val => val.message);
+    throw new Error(`Validation Error: ${errorMessages.join('. ')}`);
   } else if (error.name === 'CastError') {
     throw new Error(`Invalid ID format: ${error.value}`);
   } else {
@@ -88,6 +88,6 @@ function handleError(error) {
   }
 }
 
-const TransactionModel = mongoose.model('Transaction', TransactionSchema);
+const Transaction = mongoose.model('Transaction', TransactionSchema);
 
-module.exports = TransactionModel;
+module.exports = Transaction;
